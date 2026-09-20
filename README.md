@@ -8,6 +8,8 @@ This is an independent learning resource, not an official MoSPI publication or
 a replacement for the survey documentation. The folder name "PLFS Data 2024"
 refers to **2023-24**, not calendar-year 2024 or the redesigned survey from 2025.
 
+You can follow this YOUTUBE Playlist as well : https://www.youtube.com/playlist?list=PLDu9RPLRPcu8mvEVE5bkuqI4lxLd6vlQ1
+
 Original code and documentation are [MIT-licensed](LICENSE). **The MoSPI report
 and survey data are excluded**; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
