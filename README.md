@@ -31,8 +31,8 @@ for your computer, and the older scripts are not interchangeable with the walkth
 | [PLFS Data 2024/PLFS_walkthrough.do](PLFS%20Data%202024/PLFS_walkthrough.do) | Recommended first lesson. Checked household-person merge, annual weights, definitions and five report-table examples. |
 | [PLFS Data 2024/PLFS_refactored.do](PLFS%20Data%202024/PLFS_refactored.do) | Extended annual lesson. Numbered sections, reusable table loops, explicit age/population headings, report checks and a command log. |
 | [PLFS Data 2024/plfs_analysis.py](PLFS%20Data%202024/plfs_analysis.py) | Complete Python CSV workflow with numbered comments, merge checks, annual weights, 31 table sheets and optional PDF comparisons. |
-| [PLFS Data 2024/Merging HH and Ind Level data.do](PLFS%20Data%202024/Merging%20HH%20and%20Ind%20Level%20data.do) | Historical video code, not the recommended preparation workflow. Contains `save, replace` on input files and steps requiring manual preparation. Do not run on your only copy of the data. |
-| [PLFS Data 2024/Replicating PLFS Report Tables.do](PLFS%20Data%202024/Replicating%20PLFS%20Report%20Tables.do) | Historical table code. Expects a previously prepared merged file and uses earlier sample/weight choices. |
+| [PLFS Data 2024/Merging HH and Ind Level data.do](PLFS%20Data%202024/Merging%20HH%20and%20Ind%20Level%20data.do) | Youtube video code, not the recommended preparation workflow. Contains `save, replace` on input files and steps requiring manual preparation. Do not run on your only copy of the data. |
+| [PLFS Data 2024/Replicating PLFS Report Tables.do](PLFS%20Data%202024/Replicating%20PLFS%20Report%20Tables.do) | Youtube Historical table code. Expects a previously prepared merged file and uses earlier sample/weight choices. |
 | [PLFS Data 2024/oaxaca decomposition.do](PLFS%20Data%202024/oaxaca%20decomposition.do) | Advanced exploratory notes, not a validated research pipeline. Requires prepared data and the user-written `oaxaca` command. |
 | [PLFS Data 2024/AnnualReport_PLFS2023-24L2.pdf](PLFS%20Data%202024/AnnualReport_PLFS2023-24L2.pdf) | Official reference report by MoSPI/NSO. It is third-party material, not repository-authored work. |
 
@@ -408,7 +408,7 @@ URL, the commit you used, and your access date. Do not attribute the underlying
 survey data to the repository author.
 
 [CITATION.cff](CITATION.cff) supplies GitHub's citation metadata for the code.
-An acknowledgement can read: "Code adapted from imdsarfraz, PLFS Data: Learn,
+An acknowledgement can read: "Code adapted from Md Sarfraz, PLFS Data: Learn,
 Merge and Replicate, https://github.com/imdsarfraz/PLFS-Data, commit [the commit
 you used], accessed [date]." Cite the official PLFS release separately.
 
@@ -422,6 +422,6 @@ add documented checks or correct methods are welcome.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for reporting and validation guidance.
 The original code and documentation are available under the [LICENSE](LICENSE),
-with copyright credited to **imdsarfraz**. Keep the notice when redistributing
+with copyright credited to **Md Sarfraz**. Keep the notice when redistributing
 substantial portions. This licence does not certify the statistical methods or
 grant rights over third-party materials.
