@@ -75,6 +75,10 @@ AGE_GROUPS = {
 }
 SECTORS = {"Rural": "1", "Urban": "2", "Rural + Urban": None}
 GENDERS = ["Male", "Female", "Persons"]
+DURATION_BANDS = {
+    "1": "Up to 6 months", "2": "Over 6 months to 1 year",
+    "3": "Over 1 to 2 years", "4": "Over 2 to 3 years", "5": "Over 3 years",
+}
 LABELS = {
     "Social_group": {"1": "ST", "2": "SC", "3": "OBC", "9": "Others"},
     "Religion": {
@@ -93,13 +97,27 @@ LABELS = {
     "NIC_three": {"1": "Agriculture", "6": "Secondary", "11": "Tertiary"},
     "Training_code": {
         "1": "Formal", "2": "Hereditary", "3": "Self-learning",
-        "4": "Learning on the job", "5": "Others", "6": "No vocational training",
+        "4": "Learning on the job", "5": "Other non-formal", "6": "No vocational training",
+    },
+    "Training_duration": {
+        "1": "Less than 3 months", "2": "3 to under 6 months", "3": "6 to under 12 months",
+        "4": "12 to under 18 months", "5": "18 to under 24 months", "6": "24 months or more",
+    },
+    "Training_type": {
+        "1": "On the job", "2": "Off the job, part-time", "3": "Off the job, full-time",
     },
     "Social_security": {
-        "1": "Only pension", "2": "Only gratuity", "3": "Only health care",
-        "4": "Pension and gratuity", "5": "Pension and health care",
-        "6": "Gratuity and health care", "7": "Pension, gratuity and health care",
-        "8": "Not eligible", "9": "Not known",
+        "1": "PF/pension only", "2": "Gratuity only", "3": "Health/maternity only",
+        "4": "PF/pension and gratuity", "5": "PF/pension and health/maternity",
+        "6": "Gratuity and health/maternity", "7": "All three benefits",
+        "8": "Not eligible for these benefits", "9": "Not known",
+    },
+    "Economic_months": DURATION_BANDS,
+    "Unemployment_duration": DURATION_BANDS,
+    "Efforts_to_find_work": {
+        "1": "Employers, advertisements or work sites", "2": "Employment exchange",
+        "3": "Private employment centre", "4": "Finance to start a business",
+        "5": "Relatives or friends", "6": "Business permit or licence", "7": "Other efforts",
     },
     "Marital_status": {
         "1": "Never married", "2": "Currently married", "3": "Widowed",
@@ -108,7 +126,7 @@ LABELS = {
     "Attendance_group": {
         "1": "Never attended", "2": "Attended, not currently attending",
         "3": "Up to primary", "4": "Middle", "5": "Secondary",
-        "6": "Higher secondary", "7": "Graduate", "8": "Postgraduate",
+        "6": "Higher secondary", "7": "Graduate", "8": "Postgraduate or above",
         "9": "Diploma or certificate",
     },
     "Household_spending_band": {
@@ -284,29 +302,44 @@ def prepare_variables(data):
     subsidiary = data["Subsidiary_status"]
     # 21 is unpaid work in a household enterprise, not ordinary domestic duties.
     work_codes = [11, 12, 21, 31, 41, 51]
-    if principal.isna().any():
-        raise ValueError("Some principal activity codes are missing. Check before making rates.")
-    data["Worker"] = principal.isin(work_codes) | subsidiary.isin(work_codes)
+    if not principal.isin(work_codes + [81, 91, 92, 93, 94, 95, 97, 99]).all():
+        raise ValueError("Missing or unexpected principal activity codes. Check before making rates.")
+    if not (subsidiary.isna() | subsidiary.isin(work_codes)).all():
+        raise ValueError("Unexpected subsidiary activity codes. Check before making rates.")
+    principal_worker = principal.isin(work_codes)
+    subsidiary_worker = subsidiary.isin(work_codes)
+    subsidiary_only = ~principal_worker & subsidiary_worker
+    data["Worker"] = principal_worker | subsidiary_worker
     data["Labour_force"] = data["Worker"] | principal.eq(81)
     # A person with subsidiary work is employed, even if principal status is 81.
     data["Unemployed"] = data["Labour_force"] & ~data["Worker"]
     employment_groups = {11: "1", 12: "1", 21: "2", 31: "3", 41: "4", 51: "4"}
     # Assign one employment category: principal job first, otherwise subsidiary.
-    data["Broad_status"] = principal.map(employment_groups).fillna(subsidiary.map(employment_groups))
+    data["Status_used"] = principal.where(principal_worker).mask(subsidiary_only, subsidiary)
+    data["Broad_status"] = data["Status_used"].map(employment_groups)
 
-    # Use the subsidiary job only when the main-job detail is blank.
-    for name in ["NIC", "NCO"]:
-        data[name] = data[f"{name}_principal"].fillna(data[f"{name}_subsidiary"])
+    # Keep every detail tied to that job; a blank benefit is not a second job.
+    for name, source in [
+        ("NIC", "NIC"), ("NCO", "NCO"),
+        ("Social_security", "Security"), ("Economic_months", "Economic_months"),
+    ]:
+        data[name] = data[f"{source}_principal"].where(principal_worker).mask(
+            subsidiary_only, data[f"{source}_subsidiary"],
+        )
+    for name, width in [("NIC", 5), ("NCO", 3)]:
+        codes = data.loc[data["Worker"], name]
+        if not codes.str.fullmatch(rf"[0-9]{{{width}}}").fillna(False).all():
+            raise ValueError(f"Missing or malformed {name} codes for the selected job. Check the source fields.")
     data["NIC_division"] = data["NIC"].str[:2]
     data["NIC_broad"] = group_codes(data["NIC_division"], [
         (1, 3, "1"), (5, 9, "2"), (10, 33, "3"), (35, 39, "4"),
         (41, 43, "5"), (45, 47, "7"), (49, 53, "8"), (55, 56, "9"), (58, 99, "10"),
     ])
     data["NIC_three"] = group_codes(data["NIC_division"], [(1, 3, "1"), (5, 43, "6"), (45, 99, "11")])
+    if not data.loc[data["Worker"], "NIC_broad"].isin(LABELS["NIC_broad"]).all():
+        raise ValueError("Some industry divisions are outside the documented NIC groups.")
     data["NCO_division"] = data["NCO"].str[:1]
     data["NCO_subdivision"] = data["NCO"].str[:2]
-    data["Social_security"] = data["Security_principal"].fillna(data["Security_subsidiary"])
-    data["Economic_months"] = data["Economic_months_principal"].fillna(data["Economic_months_subsidiary"])
     data["Attendance_group"] = group_codes(data["Attendance_code"], [
         (1, 5, "1"), (11, 15, "2"), (21, 24, "3"), (25, 25, "4"),
         (26, 26, "5"), (27, 27, "6"), (28, 31, "7"), (32, 32, "8"), (33, 43, "9"),
@@ -327,6 +360,16 @@ def table_slices(data, ages, population="All persons", group=None, combined=True
         data = data.loc[data["Worker"]]
     elif population == "Labour force":
         data = data.loc[data["Labour_force"]]
+    elif population == "Employees":
+        data = data.loc[data["Status_used"].isin([31, 41, 51])]
+    elif population == "Formal trainees in labour force":
+        data = data.loc[data["Labour_force"] & data["Training_code"].eq("1")]
+    elif population == "Principal unemployed":
+        data = data.loc[data["Principal_status"].eq(81)]
+    elif population == "Unemployed":
+        data = data.loc[data["Unemployed"]]
+    elif population == "Non-workers":
+        data = data.loc[~data["Worker"]]
     elif population != "All persons":
         raise ValueError(f"Unknown table population: {population}")
     for age_group in ages:
@@ -378,7 +421,8 @@ def percentage_table(data, column, ages, population="Workers", group=None, combi
     """Show each category's share for men, women and all persons."""
     rows = []
     needed = list(dict.fromkeys([
-        "Age", "Sector_code", "Gender", "Weight", "Worker", "Labour_force", column,
+        "Age", "Sector_code", "Gender", "Weight", "Worker", "Labour_force",
+        "Unemployed", "Principal_status", "Status_used", "Training_code", column,
     ] + ([group] if group else [])))
     for heading, members in table_slices(data[needed], ages, population, group, combined):
         # Blank answers are left out, just as Stata's tabulation does.
@@ -447,30 +491,45 @@ def make_tables(data):
         ("NCO_group", "NCO", "Workers", ["All ages", "15+"], None),
         ("NCO_subdivision", "NCO_subdivision", "Workers", ["All ages", "15+"], None),
         ("NCO_division", "NCO_division", "Workers", ["All ages", "15+"], None),
-        ("vocational_labour_force", "Training_code", "Labour force", ["15+"], None),
+        ("vocational_labour_force", "Training_code", "Labour force", ["15-59"], None),
         ("vocational_15_59", "Training_code", "All persons", ["15-59"], None),
-        ("social_security", "Social_security", "Labour force", ["15+"], None),
+        ("social_security", "Social_security", "Employees", ["15+"], None),
         ("household_type", "Household_type", "Labour force", ["15+"], None),
         ("religion", "Religion", "Labour force", ["15+"], None),
         ("social_group", "Social_group", "Labour force", ["15+"], None),
         ("household_spending", "Household_spending_band", "Labour force", ["15+"], None),
         ("marital_status", "Marital_status", "Labour force", ["15+"], None),
-        ("attendance", "Attendance_group", "Labour force", ["15+"], None),
-        ("training_field", "Training_field", "Labour force", ["15+"], None),
-        ("training_duration", "Training_duration", "Labour force", ["15+"], None),
-        ("training_type", "Training_type", "Labour force", ["15+"], None),
-        ("economic_months", "Economic_months", "Labour force", ["15+"], None),
-        ("efforts_to_find_work", "Efforts_to_find_work", "Labour force", ["15+"], None),
-        ("unemployment_duration", "Unemployment_duration", "Labour force", ["15+"], None),
-        ("reason_not_working", "Reason_not_working", "Labour force", ["15+"], None),
+        ("attendance", "Attendance_group", "Labour force", ["15-29"], None),
+        ("training_field", "Training_field", "Formal trainees in labour force", ["15-59"], None),
+        ("training_duration", "Training_duration", "Formal trainees in labour force", ["15-59"], None),
+        ("training_type", "Training_type", "Formal trainees in labour force", ["15-59"], None),
+        ("economic_months", "Economic_months", "Workers", ["15+"], None),
+        ("efforts_to_find_work", "Efforts_to_find_work", "Principal unemployed", ["15+"], None),
+        ("unemployment_duration", "Unemployment_duration", "Unemployed", ["15+"], None),
+        ("reason_not_working", "Reason_not_working", "Non-workers", ["15+"], None),
     ]
+    # Questionnaire eligibility matters even when out-of-scope answers are blank.
+    details = {
+        "social_security": "Regular and casual employees in the selected job, all industries; not just non-agricultural salaried workers.",
+        "attendance": "Current attendance, not completed education. Asked below age 30; this table uses ages 15-29.",
+        "vocational_labour_force": "Training is collected at ages 12-59; this adult labour-force example uses 15-59.",
+        "vocational_15_59": "All persons aged 15-59, including those outside the labour force.",
+        "training_field": "Most recent formal training; codes are in questionnaire Block 4.1.",
+        "training_duration": "Duration of formal training, in coded bands.",
+        "training_type": "Formal training only: on the job, or off the job part-time/full-time.",
+        "economic_months": "Duration in the selected economic activity: coded bands, not counts of months worked.",
+        "efforts_to_find_work": "Principal status 81, including people who also had subsidiary work.",
+        "unemployment_duration": "Principal status 81 without subsidiary work; duration bands for this unemployment spell.",
+        "reason_not_working": "Non-workers who worked before the last 365 days and reported a reason; includes people outside the labour force.",
+    }
     for name, column, population, ages, group in specifications:
         tables[name] = percentage_table(
             data, column, ages, population, group, combined=column != "Household_type",
         )
         notes.append({
             "Sheet": name, "Population": population, "Ages": "; ".join(ages),
-            "Meaning": "Percent within each age, sector, gender and group; blank answers excluded.",
+            "Meaning": ("Percent within each age, sector, gender and group; blank answers excluded. "
+                        + details.get(name, "")).strip(),
         })
     tables["mean_HH_spending"] = spending_means(data)
     notes.append({
@@ -600,12 +659,15 @@ def save_results(data, audit, tables, guide, output_dir, save_merged=False, chec
         "Percentages": "Male, Female and Persons are weighted percentages, not sample counts.",
         "Totals": "All self-employed is a subtotal; do not add it again to its two parts.",
         "Rates": "LFPR = labour force / persons; WPR = workers / persons; UR = unemployed / labour force, times 100.",
-        "Spending": "Household spending bands are not per-person spending (MPCE).",
+        "Selected job": "Use the principal job when employed there; otherwise the subsidiary job. All job details follow that choice.",
+        "Missing answers": "Blank can mean not asked, not no. See Table_guide for each question's population and ages.",
+        "Duration": "Economic_months and unemployment duration hold duration-band codes, not counts of months.",
+        "Spending": "Household spending bands are not MPCE. The official README warns against standalone consumption analysis using PLFS.",
         "Household type": "Code meanings differ between rural and urban areas, so no combined-sector table is made.",
         "Other codes": "Unlabelled categories keep the supplied survey codes. See the questionnaire for their meanings.",
         "Coverage": "The workbook covers the do-file's table families, not every table in the annual report.",
         "Precision": "These are point estimates only. Survey-design standard errors are not calculated.",
-        "Sources": "PLFS README section B; Estimation Procedure section 4.2.1; Annual Report section 1.5.3.",
+        "Sources": "PLFS README section B; Estimation Procedure 4.2.1; Annual Report 1.5.3; Instruction Manual I sections 3.4 and 3.5.",
     }
     workbook_tables = {
         "Read_me": pd.DataFrame(notes.items(), columns=["Topic", "Explanation"]),

@@ -1,13 +1,23 @@
 /*---------------- PLFS 2023-24: From raw data to annual tables ----------------*/
-// Run this file from the top. Change the root path below if needed.
+// Goal: one row per person, then five correctly weighted tables.
+// Run the whole file from the top; local paths do not survive a separate selection.
+// Save any unsaved Stata work first: clear all clears the data in memory.
 // Stata 14+; version keeps the older table commands working on newer Stata.
 version 14.0
 clear all
 set more off
 
-local root "C:/Users/mdsarfraj/PLFS"
+// Example for this computer. Change root to your own PLFS data folder.
+local root "C:/Users/mdsarfraj/Pictures/PLFS"
 local data "`root'/dta_data_PLFS_2023_2024"
 local output "`root'/plfs_learning_output"
+// Use 1 for the complete 2023-24 release; 0 for an intentional subset exercise.
+// This switches report comparisons only. ID, merge and definition checks stay on.
+local check_report 1
+// Check both inputs before starting; confirm does not change the files.
+foreach source in hhv1 perv1 {
+       confirm file "`data'/`source'.dta"
+}
 capture mkdir "`output'"
 capture log close plfs_learning
 log using "`output'/PLFS_walkthrough.log", text replace name(plfs_learning)
@@ -50,11 +60,18 @@ tab qtr_hhv1 visit_hhv1
 
 // README Section B lists these seven fields as the household key.
 // Keep them as text: household 01 should not lose its leading zero.
+// fsu = sampled village/block; hamlet = segment; sss = second-stage stratum;
+// shn = sampled household number within that group.
 rename (qtr_hhv1 visit_hhv1 b1q3_hhv1 b1q1_hhv1 b1q13_hhv1 b1q14_hhv1 b1q15_hhv1) ///
        (Quarter Visit Sector fsu hamlet sss shn)
 assert inlist(Quarter, "Q1", "Q2", "Q3", "Q4") & Visit == "V1"
 assert inlist(Sector, "1", "2")
 assert strlen(fsu) == 5 & strlen(hamlet) == 1 & strlen(sss) == 1 & strlen(shn) == 2
+// foreach repeats the same check for each field; reject spaces and letters in IDs.
+foreach part in fsu hamlet sss shn {
+       assert !regexm(`part', "[^0-9]")
+}
+// The field widths add to 14; a person serial number adds two more characters.
 gen str14 HHID = Quarter + Visit + Sector + fsu + hamlet + sss + shn
 
 // isid checks that an ID is not missing or repeated.
@@ -78,6 +95,9 @@ assert inlist(Quarter, "Q1", "Q2", "Q3", "Q4") & Visit == "V1"
 assert inlist(Sector, "1", "2")
 assert strlen(fsu) == 5 & strlen(hamlet) == 1 & strlen(sss) == 1 & strlen(shn) == 2
 assert strlen(psn) == 2
+foreach part in fsu hamlet sss shn psn {
+       assert !regexm(`part', "[^0-9]")
+}
 gen str14 HHID = Quarter + Visit + Sector + fsu + hamlet + sss + shn
 gen str16 PID = HHID + psn
 isid PID
@@ -112,6 +132,7 @@ assert NSS > 0 & NSC > 0 & Mult > 0 & inlist(NO_QTR, 1, 2, 3, 4)
 gen double weight_quarter = Mult / 100 if NSS == NSC
 replace weight_quarter = Mult / 200 if NSS != NSC
 gen double weight = weight_quarter / NO_QTR
+assert weight > 0 & weight < .
 label variable weight "Annual combined-sample weight"
 
 // NO_QTR = contributing quarters for the sampling group, not visits to a person.
@@ -134,7 +155,9 @@ rename (state_perv1 b4q5_perv1 b4q6_perv1 b3q3_hhv1 b3q4_hhv1) ///
 rename (b5pt1q3_perv1 b5pt2q3_perv1) (Status_Code_PP Status_Code_SS)
 destring Gender Sector Social_Group Status_Code_PP Status_Code_SS, replace
 assert Age >= 0 & Age < .
-assert !missing(Status_Code_PP)
+// An unknown activity code must not silently become 'not in the labour force'.
+assert inlist(Status_Code_PP, 11, 12, 21, 31, 41, 51, 81, 91, 92, 93, 94, 95, 97, 99)
+assert missing(Status_Code_SS) | inlist(Status_Code_SS, 11, 12, 21, 31, 41, 51)
 assert inlist(Social_Group, 1, 2, 3, 9)
 
 // Report section 1.5.3 includes gender code 3 in Male when presenting estimates.
@@ -152,6 +175,8 @@ list HHID psn Age Gender Social_Group in 1/5, noobs
 
 /*---------------- 8. Who is a worker? Who is unemployed? ----------------*/
 // PP = usual principal status: the main activity, using the past 365 days.
+// The major-time rule first separates labour force from outside the labour force,
+// then working from unemployed. It is not a simple 'worked for half the year' test.
 // SS = usual subsidiary status: work for at least 30 days during that period.
 // Someone without a principal job can still count as a worker through SS.
 // The survey has already assigned these activity codes to each person.
@@ -194,16 +219,20 @@ gen double UR_Perct = 100 * Unemployed if Labor_Force == 1
 display "Table A: LFPR, usual status (ps+ss), age 15+"
 table Gender Sector if Age >= 15 & Age < . [iw=weight], ///
        c(mean LFPR_Perct) row col format(%9.1f)
-quietly summarize LFPR_Perct if Age >= 15 & Age < . [iw=weight], meanonly
-assert abs(r(mean) - 60.1) < 0.05
+if `check_report' {
+       quietly summarize LFPR_Perct if Age >= 15 & Age < . [iw=weight], meanonly
+       assert abs(r(mean) - 60.1) < 0.05
+}
 
 /*---------------- Table B: WPR, age 15+ ----------------*/
 // Statement 4, PDF page 39 / printed page 10. Expected all-India persons: 58.2%.
 display "Table B: WPR, usual status (ps+ss), age 15+"
 table Gender Sector if Age >= 15 & Age < . [iw=weight], ///
        c(mean WPR_Perct) row col format(%9.1f)
-quietly summarize WPR_Perct if Age >= 15 & Age < . [iw=weight], meanonly
-assert abs(r(mean) - 58.2) < 0.05
+if `check_report' {
+       quietly summarize WPR_Perct if Age >= 15 & Age < . [iw=weight], meanonly
+       assert abs(r(mean) - 58.2) < 0.05
+}
 
 /*---------------- Table C: UR, age 15+ ----------------*/
 // Statement 15, 'all' education levels, PDF page 51 / printed page 22.
@@ -211,8 +240,10 @@ assert abs(r(mean) - 58.2) < 0.05
 display "Table C: UR, usual status (ps+ss), age 15+"
 table Gender Sector if Labor_Force == 1 & Age >= 15 & Age < . [iw=weight], ///
        c(mean UR_Perct) row col format(%9.1f)
-quietly summarize UR_Perct if Labor_Force == 1 & Age >= 15 & Age < . [iw=weight], meanonly
-assert abs(r(mean) - 3.2) < 0.05
+if `check_report' {
+       quietly summarize UR_Perct if Labor_Force == 1 & Age >= 15 & Age < . [iw=weight], meanonly
+       assert abs(r(mean) - 3.2) < 0.05
+}
 
 // These checks allow the rounding used in the report: one decimal place.
 // For youth rates, use Age >= 15 & Age <= 29 in the table's if condition.
@@ -251,8 +282,10 @@ display "Table E: Unpaid HH helpers as a percentage of workers, all ages"
 // Sector is the third variable; scolumn adds the Rural + Urban totals.
 table Social_Group Gender Sector if Worker == 1 [iw=weight], ///
        c(mean Unpaid_Perct) row col scolumn format(%9.1f)
-quietly summarize Unpaid_Perct if Worker == 1 & Sector == 1 & Social_Group == 1 & Gender == 1 [iw=weight], meanonly
-assert abs(r(mean) - 14.7) < 0.05
+if `check_report' {
+       quietly summarize Unpaid_Perct if Worker == 1 & Sector == 1 & Social_Group == 1 & Gender == 1 [iw=weight], meanonly
+       assert abs(r(mean) - 14.7) < 0.05
+}
 
 // This is the report's employment category, not 'any unpaid job in PP or SS'.
 // For example, a principal salaried worker with unpaid SS work stays in the salary category.
@@ -268,6 +301,7 @@ display "Estimated unpaid helpers, all ages: " %15.0fc r(sum)
 // Match year, usual/CWS status, age group, rural/urban scope and gender grouping.
 // Check the denominator: persons, labour force or workers?
 // Check the annual weight, missing answers, and the report's rounding.
+// A blank answer may mean 'not asked', not 'no'. Check the questionnaire's age limits.
 // A matching percentage alone does not prove that a merge or weight was correct.
 // Standard errors / confidence intervals need the PLFS sampling design.
 // For detailed definitions, see the README, Instruction Manuals and Estimation Procedure.

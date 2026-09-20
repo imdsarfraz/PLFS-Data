@@ -29,7 +29,7 @@ for your computer, and the older scripts are not interchangeable with the walkth
 | File | Purpose and status |
 | --- | --- |
 | [PLFS Data 2024/PLFS_walkthrough.do](PLFS%20Data%202024/PLFS_walkthrough.do) | Recommended first lesson. Checked household-person merge, annual weights, definitions and five report-table examples. |
-| [PLFS Data 2024/PLFS_refactored.do](PLFS%20Data%202024/PLFS_refactored.do) | Larger annual-analysis example. Uses the corrected first-visit merge and weights; read each table's age and population filters. |
+| [PLFS Data 2024/PLFS_refactored.do](PLFS%20Data%202024/PLFS_refactored.do) | Extended annual lesson. Numbered sections, reusable table loops, explicit age/population headings, report checks and a command log. |
 | [PLFS Data 2024/plfs_analysis.py](PLFS%20Data%202024/plfs_analysis.py) | Complete Python CSV workflow with numbered comments, merge checks, annual weights, 31 table sheets and optional PDF comparisons. |
 | [PLFS Data 2024/Merging HH and Ind Level data.do](PLFS%20Data%202024/Merging%20HH%20and%20Ind%20Level%20data.do) | Historical video code, not the recommended preparation workflow. Contains `save, replace` on input files and steps requiring manual preparation. Do not run on your only copy of the data. |
 | [PLFS Data 2024/Replicating PLFS Report Tables.do](PLFS%20Data%202024/Replicating%20PLFS%20Report%20Tables.do) | Historical table code. Expects a previously prepared merged file and uses earlier sample/weight choices. |
@@ -100,9 +100,17 @@ CSVs directly; its expected layout is explained below.
 
 The walkthrough starts with `clear all`, so save any unsaved Stata work first.
 It writes a text log and a prepared learning dataset beneath
-`root/plfs_learning_output/`. The refactored file saves its merged dataset beneath
-`root/stata_output/`. Reruns replace generated files in those output folders;
+`root/plfs_learning_output/`. The refactored file writes three outputs beneath
+`root/stata_output/`: `HH_Ind_merged.dta` before analysis renames,
+`PLFS_analysis_data.dta` with the analysis variables, and `PLFS_refactored.log`
+with commands and tables. Reruns replace generated files in those output folders;
 the two recommended scripts do not overwrite the source DTA files.
+
+Both scripts use `local check_report 1` to check selected national/report values
+for the complete release. Set it to `0` only for an intentional subset exercise,
+not to bypass an unexplained mismatch. ID, merge, weight and activity-code checks
+remain active. The table filters select observations without deleting other people
+from the prepared data.
 
 ## Run with Python
 
@@ -203,6 +211,8 @@ not a zero. "All self-employed" is a subtotal; do not add it again to its parts.
 Spending bands refer to whole-household spending, not MPCE. The spending mean is
 person-weighted, not an average across households. No survey-design standard
 errors, confidence intervals or Oaxaca models are calculated by this script.
+The official release README cautions against using PLFS for standalone analysis
+of classificatory variables such as household consumption expenditure.
 
 With the checked release, expect 418,159 persons matched to 101,920 households.
 The age-15+ headline rates are **LFPR 60.1%, WPR 58.2%, UR 3.2%**.
@@ -222,6 +232,34 @@ command exits with an error. A missing input or unreadable PDF stops the run
 earlier. For missing-package errors, install into the same Python environment
 you use to run the script. For missing-column errors, check the release and
 column mapping rather than deleting the safety checks.
+
+## Read the Extended Tables
+
+The refactored Stata file and Python workbook go beyond the five introductory
+examples. These are analysis examples, not a claim to reproduce every official
+table. Read each heading and, in Excel, the **Table_guide** sheet.
+
+| Table family | Who enters the denominator? |
+| --- | --- |
+| Employment type, industry, occupation | Workers in the named age group, not everyone in the labour force |
+| Social-security benefits | Regular and casual wage workers aged 15+ in the selected job, with a reported answer; all industries |
+| Vocational training | All persons or the labour-force subset aged 15-59, as specified |
+| Field, duration and type of training | Formal trainees in the labour force, aged 15-59 |
+| Current educational attendance | Labour-force members aged 15-29; this is not completed education |
+| Search efforts | Principal-status unemployed people aged 15+, including those with subsidiary work |
+| Unemployment duration | Unemployed people aged 15+ with no principal or subsidiary work |
+| Reasons for not working | Non-workers aged 15+ who worked before the last 365 days and reported a reason, including those outside the labour force |
+
+Job details consistently use the **principal job when employed there, otherwise
+the subsidiary job**. A blank benefit for a principal job is not filled with a
+benefit from a different job. The benefits example is broader than the report's
+regular-salaried, non-agricultural indicator; do not compare them directly.
+
+A blank answer can mean **not asked**, not **no**. The survey collects attendance
+below age 30 and training at ages 12-59; these examples deliberately use adult
+subsets. Activity and unemployment durations are **coded bands**, not month counts.
+The Python `economic_months` sheet keeps its existing name but now labels the bands.
+See Instruction Manual I, sections 3.4 and 3.5, and the matching questionnaire.
 
 ## Understand the Files and Merge
 
@@ -309,13 +347,19 @@ to obtain a national result; pool the underlying weighted counts.
 During development, 84 table-cell comparisons across these five examples matched
 the report at its printed precision. Those checks reproduced the calculations
 in Python using the local DTA inputs; **the do-file has not been executed in a
-native Stata session as part of that validation**. The walkthrough includes
+native Stata session as part of that validation**. Both recommended do-files include
 merge checks and four rounded benchmark checks that you can run in Stata.
 
 The Python workflow is now included and has been run end to end on the local
 CSV inputs: all 243 selected annual-report comparisons passed.
 Its `--verify` option makes those comparisons repeatable with your
 own compatible data. Raw survey data remains excluded from the repository.
+
+The revised teaching scripts were also checked against the supplied DTA files for
+IDs, matching, annual weights, headline rates and rural ST male employment shares.
+Additional Python checks covered job selection, question eligibility, empty subgroups
+and invalid input codes. These are calculation checks, **not native Stata execution**;
+the extended Stata table syntax still needs a run in a licensed Stata installation.
 
 ## Limits and Troubleshooting
 
@@ -326,6 +370,8 @@ own compatible data. Raw survey data remains excluded from the repository.
   path macros and temporary files are set earlier in the same run.
 - **Assertion failed:** check the release, missing values and merge output.
   A matching rounded national rate alone does not validate every subgroup.
+- **Unknown activity code or missing job detail:** check the source columns and
+  codebook. Do not turn an unknown code into a non-worker or borrow another job's details.
 - **Different table values:** check age limits first, then status, weights and
   missing answers. The report includes gender code 3 in Male.
 - **Standard errors:** these examples focus on point estimates. `iw=weight`
@@ -353,6 +399,8 @@ official estimates, or cover the redesigned PLFS from 2025 onward.
   first-visit schedules for annual urban estimates.
 - Official **Instructions to Field Staff, Volume I**, Chapter 3, Box 1:
   information collected at first visits and revisits.
+- The same manual, sections **3.4 and 3.5**, and **Volume II, Schedule 10.4**:
+  question eligibility, activity codes, training, duration and job-benefit definitions.
 
 For academic work, cite MoSPI/NSO as the data and report source. Separately
 acknowledge this repository as a code/learning resource, recording the repository
