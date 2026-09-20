@@ -16,11 +16,10 @@ and survey data are excluded**; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES
 For **Stata**, open
 [PLFS Data 2024/PLFS_walkthrough.do](PLFS%20Data%202024/PLFS_walkthrough.do).
 It explains the steps in plain language and includes five worked table examples.
-You do not need to run the older merging script first.
 
 For **Python**, use
 [PLFS Data 2024/plfs_analysis.py](PLFS%20Data%202024/plfs_analysis.py) and follow
-[Run with Python](#run-with-python). It reads CSV files, checks the merge, applies
+[Run with Python](#run-with-python). It reads CSV files (MoSPI now provides data in csv format as well), checks the merge, applies
 annual weights, and exports tables without needing Stata.
 
 **Before running anything:** the raw data is not included, paths must be changed
