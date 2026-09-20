@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: >-
+  Cite this repository when using its original code or teaching materials, and
+  record the exact commit used. Cite MoSPI/NSO separately for PLFS data and reports.
+  The MIT licence covers original code and documentation, not MoSPI materials.
+type: software
+title: "PLFS Data: Learn, Merge and Replicate"
+authors:
+  - family-names: "imdsarfraz"
+repository-code: "https://github.com/imdsarfraz/PLFS-Data"
+url: "https://github.com/imdsarfraz/PLFS-Data"
+license: MIT
+abstract: >-
+  Stata and Python learning examples for India's Periodic Labour Force Survey, July
+  2023-June 2024. Topics include household-person matching, annual survey
+  weights, employment definitions and selected annual-report table replication.
+  Raw unit-level data and Stata are not distributed with this repository.
+keywords:
+  - PLFS
+  - Stata
+  - Python
+  - labour economics
+  - survey weights
+  - teaching
+  - replication
