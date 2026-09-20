@@ -15,7 +15,10 @@ and survey data are excluded**; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES
 
 For **Stata**, open
 [PLFS Data 2024/PLFS_walkthrough.do](PLFS%20Data%202024/PLFS_walkthrough.do).
-It explains the steps in plain language and includes five worked table examples.
+This is the single main workflow: merge the data, apply weights, learn from five
+worked tables, then continue to the extended analysis. Sections 1-12 explain the
+basics; sections 13-18 contain the extended tables. You do not need to run the
+older merging script first.
 
 For **Python**, use
 [PLFS Data 2024/plfs_analysis.py](PLFS%20Data%202024/plfs_analysis.py) and follow
@@ -27,17 +30,21 @@ for your computer, and the older scripts are not interchangeable with the walkth
 
 | File | Purpose and status |
 | --- | --- |
-| [PLFS Data 2024/PLFS_walkthrough.do](PLFS%20Data%202024/PLFS_walkthrough.do) | Recommended first lesson. Checked household-person merge, annual weights, definitions and five report-table examples. |
-| [PLFS Data 2024/PLFS_refactored.do](PLFS%20Data%202024/PLFS_refactored.do) | Extended annual lesson. Numbered sections, reusable table loops, explicit age/population headings, report checks and a command log. |
+| [PLFS Data 2024/PLFS_walkthrough.do](PLFS%20Data%202024/PLFS_walkthrough.do) | Main Stata file. Checked merge, annual weights, five worked examples and extended tables, with teaching comments and a command log. |
 | [PLFS Data 2024/plfs_analysis.py](PLFS%20Data%202024/plfs_analysis.py) | Complete Python CSV workflow with numbered comments, merge checks, annual weights, 31 table sheets and optional PDF comparisons. |
-| [PLFS Data 2024/Merging HH and Ind Level data.do](PLFS%20Data%202024/Merging%20HH%20and%20Ind%20Level%20data.do) | Youtube video code, not the recommended preparation workflow. Contains `save, replace` on input files and steps requiring manual preparation. Do not run on your only copy of the data. |
-| [PLFS Data 2024/Replicating PLFS Report Tables.do](PLFS%20Data%202024/Replicating%20PLFS%20Report%20Tables.do) | Youtube Historical table code. Expects a previously prepared merged file and uses earlier sample/weight choices. |
+| [PLFS Data 2024/Merging HH and Ind Level data.do](PLFS%20Data%202024/Merging%20HH%20and%20Ind%20Level%20data.do) | Original YouTube merging code, preserved unchanged. Contains `save, replace` on input files and manual preparation steps. Do not run on your only copy of the data. |
+| [PLFS Data 2024/Replicating PLFS Report Tables.do](PLFS%20Data%202024/Replicating%20PLFS%20Report%20Tables.do) | Original YouTube table code, preserved unchanged. Expects a previously prepared merged file and uses earlier sample/weight choices. |
 | [PLFS Data 2024/oaxaca decomposition.do](PLFS%20Data%202024/oaxaca%20decomposition.do) | Advanced exploratory notes, not a validated research pipeline. Requires prepared data and the user-written `oaxaca` command. |
 | [PLFS Data 2024/AnnualReport_PLFS2023-24L2.pdf](PLFS%20Data%202024/AnnualReport_PLFS2023-24L2.pdf) | Official reference report by MoSPI/NSO. It is third-party material, not repository-authored work. |
 
+**Following the YouTube recording?** The two original video files keep their
+filenames and code so you can follow along. The walkthrough is the corrected,
+standalone alternative; do not run it as an extra step in the video workflow.
+The Oaxaca notes remain separate because they cover a different, advanced analysis.
+
 ## What You Need
 
-- A licensed installation of **Stata 14 or later** for the walkthrough and refactored file.
+- A licensed installation of **Stata 14 or later** for the walkthrough.
 - Or **Python 3.11** and the packages in [requirements.txt](requirements.txt)
   for the Python workflow. The listed versions were tested with Python 3.11.
 - Basic familiarity with the Do-file Editor or a terminal, depending on your choice.
@@ -88,8 +95,7 @@ CSVs directly; its expected layout is explained below.
    ```
 
    `root` is the folder containing your data subfolder, not necessarily the Git
-   repository. You must edit the setting separately if you later use the refactored
-   file. Forward slashes and quotes work well for Windows paths with spaces.
+  repository. Forward slashes and quotes work well for Windows paths with spaces.
 4. Run the **whole file from the top**. For example, replacing this example
    repository location with your own:
 
@@ -98,14 +104,13 @@ CSVs directly; its expected layout is explained below.
    ```
 
 The walkthrough starts with `clear all`, so save any unsaved Stata work first.
-It writes a text log and a prepared learning dataset beneath
-`root/plfs_learning_output/`. The refactored file writes three outputs beneath
-`root/stata_output/`: `HH_Ind_merged.dta` before analysis renames,
-`PLFS_analysis_data.dta` with the analysis variables, and `PLFS_refactored.log`
-with commands and tables. Reruns replace generated files in those output folders;
-the two recommended scripts do not overwrite the source DTA files.
+It writes three outputs beneath `root/plfs_learning_output/`:
+`HH_Ind_merged.dta` before selecting the lesson's columns and analysis names,
+`PLFS_learning_data.dta` with the introductory and extended analysis variables,
+and `PLFS_walkthrough.log` with commands and tables. Reruns replace these generated
+outputs; the walkthrough does not overwrite the source DTA files.
 
-Both scripts use `local check_report 1` to check selected national/report values
+The walkthrough uses `local check_report 1` to check selected national/report values
 for the complete release. Set it to `0` only for an intentional subset exercise,
 not to bypass an unexplained mismatch. ID, merge, weight and activity-code checks
 remain active. The table filters select observations without deleting other people
@@ -234,8 +239,8 @@ column mapping rather than deleting the safety checks.
 
 ## Read the Extended Tables
 
-The refactored Stata file and Python workbook go beyond the five introductory
-examples. These are analysis examples, not a claim to reproduce every official
+Sections 13-18 of the walkthrough and the Python workbook go beyond the five
+introductory examples. These are analysis examples, not a claim to reproduce every official
 table. Read each heading and, in Excel, the **Table_guide** sheet.
 
 | Table family | Who enters the denominator? |
@@ -346,7 +351,7 @@ to obtain a national result; pool the underlying weighted counts.
 During development, 84 table-cell comparisons across these five examples matched
 the report at its printed precision. Those checks reproduced the calculations
 in Python using the local DTA inputs; **the do-file has not been executed in a
-native Stata session as part of that validation**. Both recommended do-files include
+native Stata session as part of that validation**. The walkthrough includes
 merge checks and four rounded benchmark checks that you can run in Stata.
 
 The Python workflow is now included and has been run end to end on the local
@@ -354,7 +359,7 @@ CSV inputs: all 243 selected annual-report comparisons passed.
 Its `--verify` option makes those comparisons repeatable with your
 own compatible data. Raw survey data remains excluded from the repository.
 
-The revised teaching scripts were also checked against the supplied DTA files for
+The underlying calculations were also checked against the supplied DTA files for
 IDs, matching, annual weights, headline rates and rural ST male employment shares.
 Additional Python checks covered job selection, question eligibility, empty subgroups
 and invalid input codes. These are calculation checks, **not native Stata execution**;

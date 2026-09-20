@@ -26,7 +26,6 @@ body:
       label: "Which script?"
       options:
         - "PLFS_walkthrough.do (recommended starting point)"
-        - "PLFS_refactored.do"
         - "plfs_analysis.py (Python CSV workflow)"
         - "Merging HH and Ind Level data.do (historical)"
         - "Replicating PLFS Report Tables.do (historical)"
